@@ -1,0 +1,9 @@
+phase: phase0
+alerts:
+  currentPineConfigVersion: 1
+signal:
+  maxBarAgeMinutes: 60
+worker:
+  pollIntervalMs: 250
+  leaseSeconds: 30
+  maxAttempts: 5

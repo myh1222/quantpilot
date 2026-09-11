@@ -1,0 +1,31 @@
+//@version=6
+indicator("QuantPilot Watchlist Alert Spike", overlay = true)
+
+alertInstanceId = input.string("gate-tv-01-v1", "Alert instance ID")
+runId = input.string("P0-CHANGE-ME", "Phase 0 run ID")
+pineConfigVersion = input.int(1, "Pine config version", minval = 1)
+emitEveryConfirmedBar = input.bool(false, "TEST ONLY: emit every confirmed bar")
+emaLength = input.int(20, "EMA length", minval = 1)
+
+ema = ta.ema(close, emaLength)
+crossUp = ta.crossover(close, ema)
+crossDown = ta.crossunder(close, ema)
+
+event = emitEveryConfirmedBar ? "PROBE_BAR_CLOSE" : crossUp ? "EMA_CROSS_UP" : crossDown ? "EMA_CROSS_DOWN" : ""
+canonicalTimeframe = timeframe.isminutes ? timeframe.period + "m" : timeframe.period
+
+if barstate.isconfirmed and event != ""
+    message = '{"schema_version":1' +
+      ',"pine_config_version":' + str.tostring(pineConfigVersion) +
+      ',"alert_instance_id":"' + alertInstanceId + '"' +
+      ',"run_id":"' + runId + '"' +
+      ',"symbol":"' + syminfo.tickerid + '"' +
+      ',"ticker":"' + syminfo.ticker + '"' +
+      ',"timeframe":"' + canonicalTimeframe + '"' +
+      ',"event":"' + event + '"' +
+      ',"price":' + str.tostring(close) +
+      ',"bar_open_time_ms":' + str.tostring(time) +
+      ',"probe_ema":' + str.tostring(ema) + '}'
+    alert(message, alert.freq_once_per_bar_close)
+
+plot(ema, "Probe EMA", color = color.orange)
