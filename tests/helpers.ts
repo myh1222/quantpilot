@@ -8,6 +8,33 @@ export const testConfig: AppConfig = {
   currentPineConfigVersion: 1,
   maxBarAgeMs: 60 * 60_000,
   worker: { pollIntervalMs: 10, leaseSeconds: 1, maxAttempts: 3 },
+  localAlerts: {
+    enabled: false,
+    provider: "yahoo",
+    pollIntervalMs: 60_000,
+    timeframeMinutes: 15,
+    confirmationLagSeconds: 10,
+    emaLength: 20,
+    pineConfigVersion: 1,
+    alertInstanceId: "local-ema-cross-v1",
+    runId: "local-alerts",
+    desktopNotifications: true,
+    symbols: [],
+  },
+  analysis: {
+    lookbackDays: 30,
+    pivotLeft: 5,
+    pivotRight: 5,
+    levelMaxAgeBars: 200,
+    touchTolerancePercent: 0.3,
+  },
+  ai: {
+    enabled: false,
+    baseUrl: "https://api.openai.com/v1",
+    model: "gpt-4o-mini",
+    timeoutMs: 30_000,
+  },
+  aiApiKey: undefined,
 };
 
 export function payload(now = Date.now()) {

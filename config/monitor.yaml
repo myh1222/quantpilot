@@ -7,3 +7,30 @@ worker:
   pollIntervalMs: 250
   leaseSeconds: 30
   maxAttempts: 5
+localAlerts:
+  # Basic accounts cannot create TradingView technical alerts or webhooks.
+  # Enable this local poller after reviewing the provider's data entitlement.
+  enabled: false
+  provider: yahoo
+  pollIntervalMs: 60000
+  timeframeMinutes: 15
+  confirmationLagSeconds: 10
+  emaLength: 20
+  pineConfigVersion: 1
+  alertInstanceId: local-ema-cross-v1
+  runId: local-alerts
+  desktopNotifications: true
+  symbols:
+    - symbol: HKEX:981
+      providerSymbol: 0981.HK
+analysis:
+  lookbackDays: 30
+  pivotLeft: 5
+  pivotRight: 5
+  levelMaxAgeBars: 200
+  touchTolerancePercent: 0.3
+ai:
+  enabled: false
+  baseUrl: https://api.openai.com/v1
+  model: gpt-4o-mini
+  timeoutMs: 30000

@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync } from "node:fs";
+import { mkdirSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import Database from "better-sqlite3";
 
@@ -14,6 +14,8 @@ export function openDatabase(path: string): Db {
 }
 
 export function migrate(db: Db): void {
-  const migration = readFileSync(resolve("migrations/001_initial.sql"), "utf8");
-  db.exec(migration);
+  const directory = resolve("migrations");
+  for (const file of readdirSync(directory).filter((name) => name.endsWith(".sql")).sort()) {
+    db.exec(readFileSync(resolve(directory, file), "utf8"));
+  }
 }

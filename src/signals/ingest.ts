@@ -12,6 +12,7 @@ export function ingestSignal(
   payload: SignalPayload,
   currentPineConfigVersion: number,
   now = new Date(),
+  options: { jobType?: "record_spike" | "notify_local_alert" } = {},
 ): IngestResult {
   const receivedAt = now.toISOString();
   const delivery = deliveryKey(payload);
@@ -71,8 +72,14 @@ export function ingestSignal(
     db.prepare(`
       INSERT OR IGNORE INTO jobs (
         signal_id, job_type, status, next_retry_at, created_at, updated_at
-      ) VALUES (?, 'record_spike', 'pending', ?, ?, ?)
-    `).run(signal.id, receivedAt, receivedAt, receivedAt);
+      ) VALUES (?, ?, 'pending', ?, ?, ?)
+    `).run(
+      signal.id,
+      options.jobType ?? "record_spike",
+      receivedAt,
+      receivedAt,
+      receivedAt,
+    );
 
     return { delivery: "accepted", signalId: signal.id };
   });

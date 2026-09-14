@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "alert:once": "tsx src/local-alert-once.ts",
+    "analyze:once": "tsx src/analyze-once.ts",
+    "ui": "tsx src/ui-main.ts",
+    "ui:start": "node dist/ui-main.js",
     "build": "tsc -p tsconfig.json",
     "dev": "tsx watch src/main.ts",
     "smoke": "node scripts/smoke.mjs",

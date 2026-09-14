@@ -5,4 +5,7 @@ data/*.db
 data/*.db-shm
 data/*.db-wal
 output/playwright/
+.playwright-cli/
+results/*.json
+results/*.md
 coverage/

@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>QuantPilot · 技术结构研判</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="ambient ambient-a"></div>
+  <div class="ambient ambient-b"></div>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">Q</span>
+      <div><strong>QuantPilot</strong><span>技术结构研判台</span></div>
+    </div>
+    <div class="system-state"><i></i> 本地运行 · 密钥不落盘</div>
+  </header>
+
+  <main class="shell">
+    <aside class="control-panel panel">
+      <div class="panel-heading">
+        <p class="eyebrow">ANALYSIS CONTROL</p>
+        <h1>开始一次研判</h1>
+        <p>拉取已确认 K 线，计算结构位与技术指标，再按需提交给 AI 解读。</p>
+      </div>
+
+      <form id="analysis-form">
+        <label class="field">
+          <span>股票</span>
+          <select id="symbol-select"></select>
+        </label>
+
+        <div id="custom-symbol-fields" class="field-stack hidden">
+          <label class="field"><span>显示代码</span><input id="symbol" value="HKEX:981" autocomplete="off"></label>
+          <label class="field">
+            <span>Yahoo 行情代码 <button type="button" class="hint" data-tip="港股示例 0981.HK；A 股示例 600519.SS；美股示例 AAPL">?</button></span>
+            <input id="provider-symbol" value="0981.HK" autocomplete="off">
+          </label>
+        </div>
+
+        <div class="field-grid">
+          <label class="field"><span>周期</span><select id="timeframe"><option value="5">5 分钟</option><option value="15">15 分钟</option><option value="30">30 分钟</option><option value="60">60 分钟</option></select></label>
+          <label class="field"><span>回看天数</span><input id="lookback" type="number" min="7" max="59" value="30"></label>
+        </div>
+
+        <div class="divider"></div>
+
+        <label class="switch-row">
+          <span><strong>AI 深度研判</strong><small>可选；技术评分始终由本地规则计算</small></span>
+          <input id="use-ai" type="checkbox"><i></i>
+        </label>
+
+        <section id="ai-fields" class="ai-fields hidden">
+          <label class="field">
+            <span>API Key</span>
+            <div class="secret-wrap"><input id="api-key" type="password" placeholder="sk-…" autocomplete="off"><button id="toggle-key" type="button">显示</button></div>
+          </label>
+          <label class="field"><span>模型</span><input id="model" value="gpt-4o-mini" autocomplete="off"></label>
+          <details>
+            <summary>兼容服务设置</summary>
+            <label class="field"><span>Responses API Base URL</span><input id="base-url" value="https://api.openai.com/v1" autocomplete="off"></label>
+          </details>
+          <p class="privacy-note">Key 仅随本次请求进入本机内存；页面不会保存到 localStorage，服务端不会写入文件或数据库。</p>
+        </section>
+
+        <button id="analyze-button" class="primary-button" type="submit"><span>运行分析</span><b>→</b></button>
+        <p id="form-error" class="form-error" role="alert"></p>
+      </form>
+    </aside>
+
+    <section class="workspace">
+      <div id="empty-state" class="empty-state panel">
+        <div class="radar"><i></i><i></i><i></i><span></span></div>
+        <p class="eyebrow">READY</p>
+        <h2>等待分析任务</h2>
+        <p>选择股票后点击“运行分析”。不填写 API Key 也能获得完整的技术结构报告。</p>
+      </div>
+
+      <div id="loading-state" class="loading-state panel hidden">
+        <div class="loader"></div><div><h2>正在构建市场结构</h2><p id="loading-copy">获取已确认 K 线…</p></div>
+      </div>
+
+      <div id="results" class="results hidden">
+        <section class="hero-card panel">
+          <div><p class="eyebrow" id="result-meta"></p><h2 id="result-symbol"></h2><p id="result-summary"></p></div>
+          <div class="score-wrap"><span>确定性技术分</span><strong id="technical-score">—</strong><small>/ 100</small><em id="bias-badge"></em></div>
+        </section>
+
+        <section class="metric-grid">
+          <article class="metric panel"><span>最新价</span><strong id="metric-close">—</strong><small id="metric-time">—</small></article>
+          <article class="metric panel"><span>RSI 14</span><strong id="metric-rsi">—</strong><small id="metric-rsi-label">—</small></article>
+          <article class="metric panel"><span>ATR 14</span><strong id="metric-atr">—</strong><small>当前波动尺度</small></article>
+          <article class="metric panel"><span>量比</span><strong id="metric-volume">—</strong><small>相对 20 期均量</small></article>
+        </section>
+
+        <section class="chart-card panel">
+          <div class="section-title"><div><p class="eyebrow">PRICE STRUCTURE</p><h3>K 线与冻结结构位</h3></div><div class="legend"><span class="l-candle">K 线</span><span class="l-ema20">EMA20</span><span class="l-ema50">EMA50</span><span class="l-support">支撑</span><span class="l-resistance">压力</span></div></div>
+          <div class="chart-stage"><canvas id="price-chart"></canvas><div id="chart-tooltip" class="chart-tooltip hidden"></div></div>
+        </section>
+
+        <div class="two-column">
+          <section class="panel detail-card">
+            <div class="section-title"><div><p class="eyebrow">LEVELS</p><h3>有效结构位</h3></div></div>
+            <div id="level-list" class="level-list"></div>
+          </section>
+          <section class="panel detail-card">
+            <div class="section-title"><div><p class="eyebrow">EVIDENCE</p><h3>规则引擎依据</h3></div></div>
+            <ul id="evidence-list" class="evidence-list"></ul>
+          </section>
+        </div>
+
+        <section id="ai-card" class="panel ai-card hidden">
+          <div class="section-title"><div><p class="eyebrow">AI JUDGEMENT</p><h3>AI 条件研判</h3></div><span id="ai-model-badge" class="model-badge"></span></div>
+          <div id="ai-error" class="ai-error hidden"></div>
+          <div id="ai-content">
+            <p id="ai-summary" class="ai-summary"></p>
+            <div class="scenario-grid"><article class="bull-case"><span>偏多场景</span><p id="bullish-scenario"></p></article><article class="bear-case"><span>偏空场景</span><p id="bearish-scenario"></p></article></div>
+            <div class="ai-lists"><div><h4>关键观察</h4><ul id="ai-observations"></ul></div><div><h4>风险与局限</h4><ul id="ai-risks"></ul></div></div>
+          </div>
+        </section>
+
+        <section class="panel stats-card">
+          <div class="section-title"><div><p class="eyebrow">STRUCTURE STATS</p><h3>结构统计</h3></div><small>基于当前回看窗口</small></div>
+          <div id="stats-grid" class="stats-grid"></div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <footer>QuantPilot 仅提供研究辅助，不构成投资建议。行情可能延迟，请结合交易所实时数据核验。</footer>
+  <script src="/app.js" defer></script>
+</body>
+</html>

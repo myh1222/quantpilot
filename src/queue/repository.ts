@@ -30,6 +30,11 @@ export function claimJob(db: Db, now: Date, leaseSeconds: number): Job | undefin
   `).get(nowIso, leaseUntil, nowIso, nowIso, nowIso) as Job | undefined)();
 }
 
+export function getJobSignal(db: Db, signalId: number): { payload: string } | undefined {
+  return db.prepare("SELECT payload FROM signals WHERE id = ?")
+    .get(signalId) as { payload: string } | undefined;
+}
+
 export function completeJob(db: Db, jobId: number, now = new Date()): void {
   db.prepare(`
     UPDATE jobs SET status = 'completed', locked_at = NULL, locked_until = NULL,

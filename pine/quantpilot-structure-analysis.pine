@@ -1,0 +1,169 @@
+//@version=6
+indicator("QuantPilot Structure & Analysis", overlay = true, max_lines_count = 50, max_labels_count = 100)
+
+pivotLeft = input.int(5, "Pivot left bars", minval = 1)
+pivotRight = input.int(5, "Pivot right bars", minval = 1)
+touchTolerancePct = input.float(0.30, "Touch tolerance (%)", minval = 0.01, step = 0.05)
+showEma = input.bool(true, "Show EMA 20/50/200")
+showPreviousDay = input.bool(true, "Show previous day high/low")
+showBreakLabels = input.bool(false, "Show break labels")
+
+ema20 = ta.ema(close, 20)
+ema50 = ta.ema(close, 50)
+ema200 = ta.ema(close, 200)
+rsi14 = ta.rsi(close, 14)
+atr14 = ta.atr(14)
+volumeAverage = ta.sma(volume, 20)
+volumeRatio = volumeAverage > 0 ? volume / volumeAverage : na
+
+dailyClose = request.security(syminfo.tickerid, "1D", close[1], lookahead = barmerge.lookahead_on)
+dailyEma20 = request.security(syminfo.tickerid, "1D", ta.ema(close, 20)[1], lookahead = barmerge.lookahead_on)
+dailyEma50 = request.security(syminfo.tickerid, "1D", ta.ema(close, 50)[1], lookahead = barmerge.lookahead_on)
+previousDayHigh = request.security(syminfo.tickerid, "1D", high[1], lookahead = barmerge.lookahead_on)
+previousDayLow = request.security(syminfo.tickerid, "1D", low[1], lookahead = barmerge.lookahead_on)
+
+plot(showEma ? ema20 : na, "EMA20", color = color.orange, linewidth = 2)
+plot(showEma ? ema50 : na, "EMA50", color = color.blue, linewidth = 2)
+plot(showEma ? ema200 : na, "EMA200", color = color.purple, linewidth = 2)
+plot(showPreviousDay ? previousDayHigh : na, "PDH", color = color.new(color.red, 45), style = plot.style_stepline)
+plot(showPreviousDay ? previousDayLow : na, "PDL", color = color.new(color.green, 45), style = plot.style_stepline)
+
+var float support1 = na
+var float support2 = na
+var float resistance1 = na
+var float resistance2 = na
+var int support1ConfirmedAt = na
+var int support2ConfirmedAt = na
+var int resistance1ConfirmedAt = na
+var int resistance2ConfirmedAt = na
+var line support1Line = na
+var line support2Line = na
+var line resistance1Line = na
+var line resistance2Line = na
+var int confirmedSupports = 0
+var int confirmedResistances = 0
+var int supportTouches = 0
+var int resistanceTouches = 0
+var int supportBreaks = 0
+var int resistanceBreaks = 0
+
+supportBroken = barstate.isconfirmed and not na(support1) and close[1] >= support1 and close < support1
+resistanceBroken = barstate.isconfirmed and not na(resistance1) and close[1] <= resistance1 and close > resistance1
+
+if supportBroken
+    supportBreaks := supportBreaks + 1
+    line.set_extend(support1Line, extend.none)
+    line.set_x2(support1Line, bar_index)
+    line.set_color(support1Line, color.red)
+    line.set_style(support1Line, line.style_dashed)
+    if showBreakLabels
+        label.new(bar_index, low, "跌破 S1\n" + str.tostring(support1, format.mintick), style = label.style_label_down, color = color.red, textcolor = color.white)
+    support1 := support2
+    support1ConfirmedAt := support2ConfirmedAt
+    support1Line := support2Line
+    support2 := na
+    support2ConfirmedAt := na
+    support2Line := na
+
+if resistanceBroken
+    resistanceBreaks := resistanceBreaks + 1
+    line.set_extend(resistance1Line, extend.none)
+    line.set_x2(resistance1Line, bar_index)
+    line.set_color(resistance1Line, color.lime)
+    line.set_style(resistance1Line, line.style_dashed)
+    if showBreakLabels
+        label.new(bar_index, high, "突破 R1\n" + str.tostring(resistance1, format.mintick), style = label.style_label_up, color = color.green, textcolor = color.white)
+    resistance1 := resistance2
+    resistance1ConfirmedAt := resistance2ConfirmedAt
+    resistance1Line := resistance2Line
+    resistance2 := na
+    resistance2ConfirmedAt := na
+    resistance2Line := na
+
+supportTouched = barstate.isconfirmed and not na(support1) and low <= support1 * (1 + touchTolerancePct / 100) and close >= support1
+resistanceTouched = barstate.isconfirmed and not na(resistance1) and high >= resistance1 * (1 - touchTolerancePct / 100) and close <= resistance1
+if supportTouched
+    supportTouches := supportTouches + 1
+if resistanceTouched
+    resistanceTouches := resistanceTouches + 1
+
+pivotLow = ta.pivotlow(low, pivotLeft, pivotRight)
+pivotHigh = ta.pivothigh(high, pivotLeft, pivotRight)
+
+if barstate.isconfirmed and not na(pivotLow) and pivotLow < close
+    confirmedSupports := confirmedSupports + 1
+    newSupportLine = line.new(bar_index[pivotRight], pivotLow, bar_index, pivotLow, extend = extend.right, color = color.green, width = 2)
+    if na(support1) or pivotLow > support1
+        if not na(support2Line)
+            line.delete(support2Line)
+        support2 := support1
+        support2ConfirmedAt := support1ConfirmedAt
+        support2Line := support1Line
+        support1 := pivotLow
+        support1ConfirmedAt := time
+        support1Line := newSupportLine
+    else if na(support2) or pivotLow > support2
+        if not na(support2Line)
+            line.delete(support2Line)
+        support2 := pivotLow
+        support2ConfirmedAt := time
+        support2Line := newSupportLine
+    else
+        line.delete(newSupportLine)
+
+if barstate.isconfirmed and not na(pivotHigh) and pivotHigh > close
+    confirmedResistances := confirmedResistances + 1
+    newResistanceLine = line.new(bar_index[pivotRight], pivotHigh, bar_index, pivotHigh, extend = extend.right, color = color.red, width = 2)
+    if na(resistance1) or pivotHigh < resistance1
+        if not na(resistance2Line)
+            line.delete(resistance2Line)
+        resistance2 := resistance1
+        resistance2ConfirmedAt := resistance1ConfirmedAt
+        resistance2Line := resistance1Line
+        resistance1 := pivotHigh
+        resistance1ConfirmedAt := time
+        resistance1Line := newResistanceLine
+    else if na(resistance2) or pivotHigh < resistance2
+        if not na(resistance2Line)
+            line.delete(resistance2Line)
+        resistance2 := pivotHigh
+        resistance2ConfirmedAt := time
+        resistance2Line := newResistanceLine
+    else
+        line.delete(newResistanceLine)
+
+score = 50
+score := score + (close > ema20 ? 10 : -10)
+score := score + (ema20 > ema50 ? 10 : -10)
+score := score + (ema50 > ema200 ? 15 : -15)
+score := score + (rsi14 >= 55 ? 10 : rsi14 <= 45 ? -10 : 0)
+score := math.max(0, math.min(100, score))
+bias = score >= 65 ? "偏多" : score <= 35 ? "偏空" : "中性"
+dailyBias = dailyClose > dailyEma20 and dailyEma20 > dailyEma50 ? "日线偏多" : dailyClose < dailyEma20 and dailyEma20 < dailyEma50 ? "日线偏空" : "日线中性"
+
+var table dashboard = table.new(position.bottom_right, 2, 12, bgcolor = color.new(color.black, 15), frame_color = color.gray, frame_width = 1)
+if barstate.islast
+    table.cell(dashboard, 0, 0, "QuantPilot", text_color = color.white, bgcolor = color.new(color.blue, 40))
+    table.cell(dashboard, 1, 0, bias + " " + str.tostring(score), text_color = score >= 65 ? color.lime : score <= 35 ? color.red : color.yellow, bgcolor = color.new(color.blue, 40))
+    table.cell(dashboard, 0, 1, "Daily")
+    table.cell(dashboard, 1, 1, dailyBias)
+    table.cell(dashboard, 0, 2, "RSI14")
+    table.cell(dashboard, 1, 2, str.tostring(rsi14, "#.0"))
+    table.cell(dashboard, 0, 3, "Volume")
+    table.cell(dashboard, 1, 3, na(volumeRatio) ? "—" : str.tostring(volumeRatio, "#.00") + "x")
+    table.cell(dashboard, 0, 4, "ATR14")
+    table.cell(dashboard, 1, 4, str.tostring(atr14, format.mintick))
+    table.cell(dashboard, 0, 5, "S1 / S2")
+    table.cell(dashboard, 1, 5, (na(support1) ? "—" : str.tostring(support1, format.mintick)) + " / " + (na(support2) ? "—" : str.tostring(support2, format.mintick)))
+    table.cell(dashboard, 0, 6, "R1 / R2")
+    table.cell(dashboard, 1, 6, (na(resistance1) ? "—" : str.tostring(resistance1, format.mintick)) + " / " + (na(resistance2) ? "—" : str.tostring(resistance2, format.mintick)))
+    table.cell(dashboard, 0, 7, "Support stats")
+    table.cell(dashboard, 1, 7, str.tostring(confirmedSupports) + " / T" + str.tostring(supportTouches) + " / B" + str.tostring(supportBreaks))
+    table.cell(dashboard, 0, 8, "Resistance stats")
+    table.cell(dashboard, 1, 8, str.tostring(confirmedResistances) + " / T" + str.tostring(resistanceTouches) + " / B" + str.tostring(resistanceBreaks))
+    table.cell(dashboard, 0, 9, "PDH / PDL")
+    table.cell(dashboard, 1, 9, str.tostring(previousDayHigh, format.mintick) + " / " + str.tostring(previousDayLow, format.mintick))
+    table.cell(dashboard, 0, 10, "S1 confirmed")
+    table.cell(dashboard, 1, 10, na(support1ConfirmedAt) ? "—" : str.format_time(support1ConfirmedAt, "MM-dd HH:mm"))
+    table.cell(dashboard, 0, 11, "R1 confirmed")
+    table.cell(dashboard, 1, 11, na(resistance1ConfirmedAt) ? "—" : str.format_time(resistance1ConfirmedAt, "MM-dd HH:mm"))

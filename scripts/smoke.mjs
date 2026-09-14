@@ -51,6 +51,7 @@ const child = spawn(process.execPath, ["dist/main.js"], {
 let output = "";
 child.stdout.on("data", (chunk) => { output += chunk; });
 child.stderr.on("data", (chunk) => { output += chunk; });
+const exited = new Promise((resolve) => child.once("exit", () => resolve()));
 
 try {
   const health = await waitForHealth();
@@ -99,8 +100,8 @@ try {
 
   console.log("process smoke passed: auth, validation, idempotency, persistence, worker, secret redaction");
 } finally {
-  child.kill("SIGTERM");
-  await new Promise((resolve) => child.once("exit", resolve));
+  if (child.exitCode === null && child.signalCode === null) child.kill("SIGTERM");
+  await exited;
   if (child.exitCode !== 0 && child.exitCode !== null) {
     process.exitCode = child.exitCode;
     console.error(output);

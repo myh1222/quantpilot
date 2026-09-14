@@ -67,7 +67,9 @@ AI 和 Playwright 都不应该承担实时行情监控职责。
 4.  选择公网部署形态：推荐 VPS；本地运行时必须通过受控 HTTPS Tunnel 暴露网关；
 5.  确定 Phase 1 使用的公告、新闻和 Outcome Quote Provider，并确认 API 权限、使用条款与数据保留要求。
 
-任何门禁失败都必须形成显式 fallback 决策，不能在实现过程中默认绕过。
+任何门禁失败都必须形成显式 fallback 或 STOP 决策，不能在实现过程中默认绕过。特别是：
+Watchlist Alert 不可用但普通技术 Alert 与 Webhook 可用时，才允许进入 per-symbol fallback；
+若普通技术 Alert 或 Webhook entitlement 也不可用，则 Phase 1 必须停止，直到订阅能力满足。
 
 ------------------------------------------------------------------------
 
@@ -1809,11 +1811,35 @@ PASS
 
 FAIL
 → 记录失败证据和 TradingView 账户/版本环境
-→ Phase 1 只实现 per-symbol aggregated alert mode
+→ 若普通技术 Alert 与 Webhook 均可用：Phase 1 只实现 per-symbol aggregated alert mode
 → 每个 symbol + trigger timeframe 一条 Alert
+→ 若普通技术 Alert 或 Webhook 不可用：STOP，不得开始依赖 TradingView 信号面的 Phase 1
 ```
 
 Gate 结果必须形成 ADR。不得在 Phase 1 中继续“边开发边验证”，也不得同时实现两条主路径。
+
+#### 2026-09-11 实测结果
+
+当前测试账户为 TradingView Basic，GATE-TV-01 判定为 **FAIL / ENTITLEMENT BLOCKED**：
+
+-   Watchlist 菜单存在 `Add alert on the list…`，但操作后提示 Watchlist Alert 仅升级计划可用；
+-   普通技术 Alert 保存失败，页面明确显示当前计划技术 Alert 上限为 `0`；
+-   Webhook URL 选项可见但不可启用，操作后提示 Webhook 仅升级计划可用；
+-   自定义 Pine 已保存并挂载，Alert 条件能选择 `Any alert() function call`，但无法创建服务端
+    Alert，因此不能验证真实运行时的 per-symbol 动态求值；
+-   `HKEX:981` 在界面明确显示 `Quotes are delayed by 15 min`，当前 entitlement 不满足港股实时监控。
+
+接收网关、SQLite 原子 outbox、幂等处理以及公网 HTTPS POST 已独立验证通过，但这些组件级
+PASS 不能替代 TradingView 端到端 PASS。Phase 1 在当前订阅下保持 STOP。升级后只需重跑
+服务端 Alert 创建、真实触发、Watchlist 成员变更和 webhook 入库检查；详细证据与步骤见
+`docs/adr/0001-gate-tv-01.md`。
+
+该 STOP 只约束依赖 TradingView 服务端 Alert/Webhook 的实时信号链，不阻止本地研究功能继续
+开发。当前账户可使用独立的本地分析路径：Quote Provider 拉取已确认 OHLCV，确定性代码计算
+指标、冻结结构位和统计，随后可选地把精简后的结构化技术结果提交 AI。API key 只能从运行环境
+读取，禁止写入 YAML、数据库、报告或日志；调用默认不允许服务端持久化。AI 输出使用严格
+Schema，负责总结、场景和风险，不得生成最终 `confidence_score`，也不得补写输入中不存在的
+新闻、公告或基本面事实。
 
 ### Phase 1 --- End-to-End MVP
 
