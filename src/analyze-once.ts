@@ -5,6 +5,7 @@ import { renderMarkdown } from "./analysis/report.js";
 import { runAnalysis } from "./analysis/run.js";
 import { loadConfig } from "./config.js";
 import { YahooChartProvider } from "./local-alerts/yahoo.js";
+import { TradingViewBrowserSnapshotProvider } from "./tradingview/browser-provider.js";
 
 const config = loadConfig(process.env, { requireWebhookSecret: false });
 const provider = new YahooChartProvider();
@@ -18,7 +19,10 @@ if (config.ai.enabled && config.aiApiKey === undefined) {
 }
 
 const aiProvider = config.ai.enabled
-  ? new ResponsesApiProvider(config.ai.model, config.aiApiKey!, config.ai.baseUrl, config.ai.timeoutMs)
+  ? new ResponsesApiProvider(config.ai.model, config.aiApiKey!, config.ai.baseUrl, config.ai.timeoutMs, fetch, config.ai.transport)
+  : undefined;
+const tradingViewProvider = config.tradingView.enabled
+  ? new TradingViewBrowserSnapshotProvider(config.tradingView)
   : undefined;
 const summaries: Array<Record<string, unknown>> = [];
 
@@ -34,7 +38,7 @@ for (const item of config.localAlerts.symbols) {
     pivotRight: config.analysis.pivotRight,
     levelMaxAgeBars: config.analysis.levelMaxAgeBars,
     touchTolerancePercent: config.analysis.touchTolerancePercent,
-  }, provider, aiProvider);
+  }, provider, aiProvider, tradingViewProvider);
   const report = artifact.technicalAnalysis;
   const aiResult = artifact.ai;
   const stem = `${safeName(item.symbol)}-${report.timeframe}`;
@@ -53,6 +57,8 @@ for (const item of config.localAlerts.symbols) {
     files: [`results/${stem}.json`, `results/${stem}.md`],
   });
 }
+
+await tradingViewProvider?.close();
 
 process.stdout.write(`${JSON.stringify({ analyses: summaries }, null, 2)}\n`);
 

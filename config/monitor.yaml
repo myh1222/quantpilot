@@ -31,6 +31,17 @@ analysis:
   touchTolerancePercent: 0.3
 ai:
   enabled: false
-  baseUrl: https://api.openai.com/v1
-  model: gpt-4o-mini
+  baseUrl: http://127.0.0.1:8317/v1
+  model: glm
+  transport: chat_completions
+  timeoutMs: 300000
+tradingView:
+  # Uses a dedicated Chrome profile over local CDP. Run `npm run tradingview:open`
+  # once before enabling, then keep the browser profile private.
+  enabled: true
+  chartUrl: https://www.tradingview.com/chart/AKITEcJL/
+  profileDir: data/tradingview-profile
+  headless: false
   timeoutMs: 30000
+  indicatorTitle: QuantPilot Structure & Analysis
+  expectedScriptVersion: 2

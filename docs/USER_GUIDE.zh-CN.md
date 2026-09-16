@@ -38,15 +38,28 @@ npm run ui
 
 技术评分由本地规则计算，并不由 AI 决定。
 
+### 缝合 TradingView Pine 指标
+
+这个功能不需要 TradingView Alert。首次使用时：
+
+1. 把仓库中的最新版 `pine/quantpilot-structure-analysis.pine` 保存到 TradingView，并挂到图表；
+2. 在终端运行 `npm run tradingview:open`，在打开的系统 Chrome 专用窗口中登录；
+3. 在打开的专用 Chrome 窗口中登录，完成后回终端按 `Ctrl+C`；
+4. 把 `config/monitor.yaml` 中的 `tradingView.enabled` 改为 `true`，重新启动 UI；
+5. 分析时保持“缝合 TradingView 指标”开启。
+
+QuantPilot 会读取 Pine Data Window 中的最新已确认快照，并与本地 K 线按股票、周期和 Bar 时间对齐。读取失败时仍完成本地分析，并在报告顶部显示降级原因。不要同时运行两个使用 `data/tradingview-profile` 的程序。
+
 ## 3. 使用 AI 研判
 
 1. 打开“AI 深度研判”。
-2. 填写用户自己的 API Key。
-3. 填写支持 Responses API 的模型名称。
-4. 使用 OpenAI 时保持 Base URL 为 `https://api.openai.com/v1`。
-5. 点击“运行分析”。
+2. 填写用户自己的 API Key，或者使用本机 Keychain/环境变量中已经配置的 Key。
+3. 选择 API 类型并填写模型名称。
+4. 使用 OpenAI 时选择 Responses API，并保持 Base URL 为 `https://api.openai.com/v1`。
+5. 若关联了持仓，明确勾选是否允许把持仓字段提交给 AI。
+6. 点击“运行分析”。
 
-AI 接收的是本地已经处理好的指标、冻结结构位、统计和规则研判，不接收浏览器登录态，也不会自行抓取或编造新闻。AI 输出只包括条件研判、关键观察、风险和数据局限，不负责最终技术评分。
+AI 接收的是本地已经处理好的指标、冻结结构位、统计、规则研判，以及成功读取时的 TradingView Pine 快照。它不接收浏览器 Cookie，也不会自行抓取或编造新闻。AI 输出只包括条件研判、关键观察、风险和数据局限，不负责最终技术评分。
 
 ### API Key 如何处理
 
@@ -54,12 +67,33 @@ AI 接收的是本地已经处理好的指标、冻结结构位、统计和规�
 - Key 不会写入 SQLite；
 - Key 不会写入分析结果；
 - 页面不使用 localStorage 或 Cookie 保存 Key；
-- Key 只存在于当前页面输入框和本机 Node 进程处理该次请求时的内存中；
-- 刷新或关闭页面后需要重新填写。
+- 页面 Key 只存在于当前页面输入框和本机 Node 进程处理该次请求时的内存中；
+- Keychain/环境变量 Key 只能发送到 `config/monitor.yaml` 预设的 Provider；
+- 自定义 Base URL 必须同时提供本次请求自己的 Key；
+- 持仓默认不提交 AI。授权后会提交当前持仓、同账户其他聚合持仓、各币种现金余额和风险参数，但不会提交账户名称、数据库 ID 或现金备注。
 
 如果 AI 请求失败，本地技术分析仍会正常展示，页面会单独显示 AI 错误。
 
-## 4. 添加其他股票
+兼容 Chat Completions 的模型如果首次返回了错误字段（例如只有 `stance/reason`），QuantPilot 会要求模型按研判 JSON Schema 自动修复一次。再次失败时页面只显示简洁的协议错误，不再暴露内部校验详情。
+
+“继续追问”只在本机环境变量或 Keychain 已配置服务端 Key 时启用。追问使用一小时内有效的本机分析会话 ID，不接受浏览器回传的分析正文作为可信上下文；页面临时 Key 不会为了追问而保存。
+
+## 4. 自选股、账户、现金与仓位
+
+顶部“自选股”可以按中文名称或代码搜索并长期保存常用股票。股票代码会在服务端规范化，例如 `0981.HK` 保存为 `HKEX:981`，减少同一股票产生多个身份。
+
+顶部“账户”用于先创建一个或多个投资账户。账户可以暂时没有资产，也可以包含 0 到多个股票持仓和 0 到多个不同币种的现金余额。账户本身保存基础币种，以及可选的参考净值和单笔风险预算。
+
+同一账户、同一币种保存一条聚合现金余额。不同币种不会在缺少汇率数据时强行相加。
+
+顶部“仓位”用于把股票关联到一个已有账户，可以保存：
+
+- 股票、所属账户、方向、数量、平均成本和币种；
+- 止损、目标价、建仓日期和持仓逻辑；
+
+参考净值和风险预算用于计算仓位占净值和止损风险占净值。币种不一致时这些比例显示为空，不会猜测换算。仍有关联持仓的账户或自选股不能删除，必须先处理持仓。详细设计见 [`PORTFOLIO_ACCOUNT_DESIGN.zh-CN.md`](PORTFOLIO_ACCOUNT_DESIGN.zh-CN.md)。
+
+### 添加其他股票
 
 在股票下拉框选择“自定义股票”，填写：
 
@@ -75,7 +109,7 @@ AI 接收的是本地已经处理好的指标、冻结结构位、统计和规�
 | 深证 A 股 | `SZSE:000001` | `000001.SZ` |
 | 美股 | `NASDAQ:AAPL` | `AAPL` |
 
-也可以把常用股票加入 `config/monitor.yaml` 的 `localAlerts.symbols`，重启前端后会出现在下拉框中。
+也可以把初始股票加入 `config/monitor.yaml` 的 `localAlerts.symbols`，重启前端后会补充到自选股数据库。
 
 ## 5. TradingView 指标
 
@@ -106,7 +140,11 @@ EMA200 至少需要 200 根有效 K 线。增加回看天数，或改用更短�
 
 ### API Key 正确但 AI 失败
 
-检查模型名称、账户余额、API 权限和 Base URL。这里需要 API 平台的 Key，不是 ChatGPT 网页账户密码。
+检查 API 类型、模型名称、账户余额、API 权限和 Base URL。这里需要 API 平台的 Key，不是 ChatGPT 网页账户密码。若使用本机预设 Key，页面里修改的 Base URL 不会覆盖服务端安全配置。
+
+### TradingView 指标读取失败
+
+先运行 `npm run tradingview:open`，保持这个专用 Chrome 窗口打开，再确认图表已经挂载最新版 QuantPilot Pine。若提示找不到 Data Window，可能是 TradingView UI 已变化，需要更新只读选择器；本地分析不受影响。
 
 ### 这是交易建议吗
 

@@ -39,7 +39,17 @@ const fileConfigSchema = z.object({
     enabled: z.boolean().default(false),
     baseUrl: z.string().url().default("https://api.openai.com/v1"),
     model: z.string().min(1),
-    timeoutMs: z.number().int().min(1_000).max(120_000).default(30_000),
+    transport: z.enum(["responses", "chat_completions"]).default("responses"),
+    timeoutMs: z.number().int().min(1_000).max(300_000).default(30_000),
+  }).optional(),
+  tradingView: z.object({
+    enabled: z.boolean().default(false),
+    chartUrl: z.string().url().default("https://www.tradingview.com/chart/"),
+    profileDir: z.string().min(1).default("data/tradingview-profile"),
+    headless: z.boolean().default(false),
+    timeoutMs: z.number().int().min(5_000).max(120_000).default(30_000),
+    indicatorTitle: z.string().min(1).default("QuantPilot Structure & Analysis"),
+    expectedScriptVersion: z.number().int().positive().default(2),
   }).optional(),
 });
 
@@ -95,9 +105,19 @@ export function loadConfig(
     },
     ai: file.ai ?? {
       enabled: false,
-      baseUrl: "https://api.openai.com/v1",
-      model: "gpt-4o-mini",
+      baseUrl: "http://127.0.0.1:8317/v1",
+      model: "glm",
+      transport: "chat_completions" as const,
       timeoutMs: 30_000,
+    },
+    tradingView: {
+      enabled: file.tradingView?.enabled ?? false,
+      chartUrl: file.tradingView?.chartUrl ?? "https://www.tradingview.com/chart/",
+      profileDir: resolve(file.tradingView?.profileDir ?? "data/tradingview-profile"),
+      headless: file.tradingView?.headless ?? false,
+      timeoutMs: file.tradingView?.timeoutMs ?? 30_000,
+      indicatorTitle: file.tradingView?.indicatorTitle ?? "QuantPilot Structure & Analysis",
+      expectedScriptVersion: file.tradingView?.expectedScriptVersion ?? 2,
     },
   };
 }

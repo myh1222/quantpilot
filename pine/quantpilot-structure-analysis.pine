@@ -1,6 +1,10 @@
 //@version=6
 indicator("QuantPilot Structure & Analysis", overlay = true, max_lines_count = 50, max_labels_count = 100)
 
+// Machine-readable contract consumed from TradingView's Data Window by QuantPilot.
+// Increment whenever a field or its semantics changes.
+qpScriptVersion = 2
+
 pivotLeft = input.int(5, "Pivot left bars", minval = 1)
 pivotRight = input.int(5, "Pivot right bars", minval = 1)
 touchTolerancePct = input.float(0.30, "Touch tolerance (%)", minval = 0.01, step = 0.05)
@@ -167,3 +171,51 @@ if barstate.islast
     table.cell(dashboard, 1, 10, na(support1ConfirmedAt) ? "—" : str.format_time(support1ConfirmedAt, "MM-dd HH:mm"))
     table.cell(dashboard, 0, 11, "R1 confirmed")
     table.cell(dashboard, 1, 11, na(resistance1ConfirmedAt) ? "—" : str.format_time(resistance1ConfirmedAt, "MM-dd HH:mm"))
+
+// During a live bar, expose the preceding bar so every snapshot is confirmed.
+qpBarTime = barstate.isrealtime ? time[1] : time
+qpClose = barstate.isrealtime ? close[1] : close
+qpEma20 = barstate.isrealtime ? ema20[1] : ema20
+qpEma50 = barstate.isrealtime ? ema50[1] : ema50
+qpEma200 = barstate.isrealtime ? ema200[1] : ema200
+qpRsi14 = barstate.isrealtime ? rsi14[1] : rsi14
+qpAtr14 = barstate.isrealtime ? atr14[1] : atr14
+qpVolumeRatio = barstate.isrealtime ? volumeRatio[1] : volumeRatio
+qpDailyTrend = dailyClose > dailyEma20 and dailyEma20 > dailyEma50 ? 1 : dailyClose < dailyEma20 and dailyEma20 < dailyEma50 ? -1 : 0
+qpScore = barstate.isrealtime ? score[1] : score
+qpSupport1 = barstate.isrealtime ? support1[1] : support1
+qpSupport2 = barstate.isrealtime ? support2[1] : support2
+qpResistance1 = barstate.isrealtime ? resistance1[1] : resistance1
+qpResistance2 = barstate.isrealtime ? resistance2[1] : resistance2
+qpSupport1ConfirmedAt = barstate.isrealtime ? support1ConfirmedAt[1] : support1ConfirmedAt
+qpResistance1ConfirmedAt = barstate.isrealtime ? resistance1ConfirmedAt[1] : resistance1ConfirmedAt
+qpConfirmedSupports = barstate.isrealtime ? confirmedSupports[1] : confirmedSupports
+qpConfirmedResistances = barstate.isrealtime ? confirmedResistances[1] : confirmedResistances
+qpSupportTouches = barstate.isrealtime ? supportTouches[1] : supportTouches
+qpResistanceTouches = barstate.isrealtime ? resistanceTouches[1] : resistanceTouches
+qpSupportBreaks = barstate.isrealtime ? supportBreaks[1] : supportBreaks
+qpResistanceBreaks = barstate.isrealtime ? resistanceBreaks[1] : resistanceBreaks
+
+plot(qpBarTime / 1000, "QP_BAR_TIME_S", display = display.data_window, precision = 0, show_last = 1)
+plot(qpClose, "QP_CLOSE", display = display.data_window, show_last = 1)
+plot(qpEma20, "QP_EMA20", display = display.data_window, show_last = 1)
+plot(qpEma50, "QP_EMA50", display = display.data_window, show_last = 1)
+plot(qpEma200, "QP_EMA200", display = display.data_window, show_last = 1)
+plot(qpRsi14, "QP_RSI14", display = display.data_window, show_last = 1)
+plot(qpAtr14, "QP_ATR14", display = display.data_window, show_last = 1)
+plot(qpVolumeRatio, "QP_VOLUME_RATIO", display = display.data_window, show_last = 1)
+plot(qpDailyTrend, "QP_DAILY_TREND", display = display.data_window, precision = 0, show_last = 1)
+plot(qpScore, "QP_SCORE", display = display.data_window, precision = 0, show_last = 1)
+plot(qpSupport1, "QP_SUPPORT1", display = display.data_window, show_last = 1)
+plot(qpSupport2, "QP_SUPPORT2", display = display.data_window, show_last = 1)
+plot(qpResistance1, "QP_RESISTANCE1", display = display.data_window, show_last = 1)
+plot(qpResistance2, "QP_RESISTANCE2", display = display.data_window, show_last = 1)
+plot(qpSupport1ConfirmedAt / 1000, "QP_SUPPORT1_CONFIRMED_S", display = display.data_window, precision = 0, show_last = 1)
+plot(qpResistance1ConfirmedAt / 1000, "QP_RESISTANCE1_CONFIRMED_S", display = display.data_window, precision = 0, show_last = 1)
+plot(qpConfirmedSupports, "QP_CONFIRMED_SUPPORTS", display = display.data_window, precision = 0, show_last = 1)
+plot(qpConfirmedResistances, "QP_CONFIRMED_RESISTANCES", display = display.data_window, precision = 0, show_last = 1)
+plot(qpSupportTouches, "QP_SUPPORT_TOUCHES", display = display.data_window, precision = 0, show_last = 1)
+plot(qpResistanceTouches, "QP_RESISTANCE_TOUCHES", display = display.data_window, precision = 0, show_last = 1)
+plot(qpSupportBreaks, "QP_SUPPORT_BREAKS", display = display.data_window, precision = 0, show_last = 1)
+plot(qpResistanceBreaks, "QP_RESISTANCE_BREAKS", display = display.data_window, precision = 0, show_last = 1)
+plot(qpScriptVersion, "QP_SCRIPT_VERSION", display = display.data_window, precision = 0, show_last = 1)

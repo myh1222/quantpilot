@@ -32,7 +32,17 @@ export const testConfig: AppConfig = {
     enabled: false,
     baseUrl: "https://api.openai.com/v1",
     model: "gpt-4o-mini",
+    transport: "chat_completions",
     timeoutMs: 30_000,
+  },
+  tradingView: {
+    enabled: false,
+    chartUrl: "https://www.tradingview.com/chart/",
+    profileDir: "/tmp/quantpilot-test-tradingview-profile",
+    headless: true,
+    timeoutMs: 30_000,
+    indicatorTitle: "QuantPilot Structure & Analysis",
+    expectedScriptVersion: 2,
   },
   aiApiKey: undefined,
 };

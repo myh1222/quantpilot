@@ -4,6 +4,7 @@ dist/
 data/*.db
 data/*.db-shm
 data/*.db-wal
+data/tradingview-profile/
 output/playwright/
 .playwright-cli/
 results/*.json

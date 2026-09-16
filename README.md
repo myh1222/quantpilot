@@ -13,8 +13,9 @@ npm run ui
 
 Open <http://127.0.0.1:8787>. The UI can render recent candles, EMA overlays,
 frozen support/resistance levels, deterministic scoring and optional AI
-judgement. A user-supplied AI key is accepted only for the current request and
-is not persisted by the browser or server.
+judgement. It also manages a persistent watchlist, account positions and optional
+account risk parameters. A user-supplied AI key is accepted only for the current
+request and is not persisted by the browser or server.
 
 See [the Chinese user guide](docs/USER_GUIDE.zh-CN.md) for the complete workflow.
 This repository implements the receiver half of GATE-TV-01 and records the
@@ -76,6 +77,30 @@ confirmed, frozen pivot support/resistance levels. The dashboard shows EMA trend
 daily context, RSI, volume ratio, S1/S2/R1/R2, and level touch/break statistics.
 It does not require a TradingView server-side alert.
 
+### On-demand TradingView enrichment
+
+QuantPilot can query the Pine indicator's Data Window during an analysis without
+using a TradingView alert or webhook. Copy the current
+`pine/quantpilot-structure-analysis.pine` into TradingView, then create the
+dedicated login profile once:
+
+```bash
+npm run tradingview:open
+```
+
+Keep that dedicated Chrome window open, then set `tradingView.enabled: true` in
+`config/monitor.yaml`. The UI will
+offer “缝合 TradingView 指标”. TradingView contributes only the current confirmed
+Pine snapshot; Yahoo remains responsible for historical candles and local
+statistics. Missing login, Pine fields, or a changed TradingView UI causes an
+explicit local-data fallback rather than failing the whole analysis.
+
+Keep `tradingView.expectedScriptVersion` aligned with `QP_SCRIPT_VERSION` in the
+Pine script. A mismatch fails closed and the analysis falls back to local market data.
+
+See [the pull integration design](docs/TRADINGVIEW_PULL_INTEGRATION.zh-CN.md) for
+the data contract, alignment thresholds, privacy boundary and known limitations.
+
 Generate local JSON and Markdown reports with:
 
 ```bash
@@ -83,11 +108,18 @@ npm run analyze:once
 ```
 
 Reports are written under `results/`. To append an AI interpretation, set
-`ai.enabled: true`, choose a Responses-API-compatible `baseUrl` and `model`, then
+`ai.enabled: true`, choose `transport`, `baseUrl` and `model`, then
 provide `QP_AI_API_KEY` through the environment. The key is never read from YAML
-or written to reports. Only processed technical facts are submitted; raw browser
-state and credentials are not sent. Structured output forbids AI-generated final
-confidence scores and unsupported news/fundamental claims.
+or written to reports. A server/keychain key is bound to those server-owned AI
+settings; a custom destination must use a per-request key. Processed technical
+facts are submitted, while position facts are submitted only after explicit UI
+consent. An account can contain multiple positions and multiple currency cash
+balances; account names, local IDs, cash notes and TradingView browser state are
+never sent. Structured
+output forbids AI-generated final confidence scores and unsupported claims.
+
+See [the portfolio account design](docs/PORTFOLIO_ACCOUNT_DESIGN.zh-CN.md) for
+the account/cash/position model, migration rules and multi-currency limitations.
 
 ```bash
 QP_AI_API_KEY=<user-key> npm run analyze:once

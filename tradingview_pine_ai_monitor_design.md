@@ -199,7 +199,8 @@ Playwright 仅在确有需要时用于：
 `symbol + trigger timeframe` 一条聚合 Alert。无论哪种模式，8 个事件都通过同一 Pine
 脚本内的动态 `alert()` 发出，禁止按事件创建 8 条独立 Alert。
 
-不用于实时行情读取。
+不用于后台实时行情轮询。用户主动发起分析时，可以使用独立的查询面读取当前图表的 Pine
+Data Window；该路径不创建 Alert，也不参与实时告警链路。
 
 可以理解为：
 
@@ -209,6 +210,41 @@ Playwright = Optional/Reconciliation Control Plane
 Pine       = Data / Signal Plane
 AI         = Analysis Plane
 ```
+
+### 4.4 Basic 账户的按需查询面
+
+当账户无法使用服务端 Alert/Webhook 时，QuantPilot 在用户点击“开始分析”后主动打开
+TradingView 图表，读取 `QuantPilot Structure & Analysis` 指标通过 `display.data_window`
+暴露的 `QP_*` 字段。该快照与行情 Provider 的历史 K 线、确定性技术统计和可选仓位上下文
+缝合后，再提交给 AI 做解释和条件化研判。
+
+该查询面必须满足：
+
+-   使用 QuantPilot 专用 persistent Chrome profile，通过只绑定 `127.0.0.1` 的 CDP 端口连接，登录态和 Cookie 不进入数据库或 AI 请求；
+-   同一浏览器上下文串行访问，避免多个分析相互切换 Symbol / Timeframe；
+-   Pine 仅输出上一根已确认 K 线，QuantPilot 校验 Symbol、周期、bar time、close 和脚本版本；
+-   `QP_SCRIPT_VERSION` 必须等于配置的 `expectedScriptVersion`，不匹配时 fail closed；
+-   TradingView 不可用时仅将该数据源标记为 unavailable，本地行情与规则分析仍可完成；
+-   只有用户明确勾选时，脱敏后的仓位数值才随分析上下文发给 AI，账户名和本地 ID 永不发送。
+
+详细契约与验收标准见 `docs/TRADINGVIEW_PULL_INTEGRATION.zh-CN.md`。
+
+### 4.5 账户是独立聚合根
+
+账户、现金和持仓使用明确的一对多关系：
+
+``` text
+Account 1 ── 0..N Position
+Account 1 ── 0..N CashBalance
+WatchlistItem 1 ── 0..N Position
+```
+
+账户可以在没有资产时独立存在；持仓必须引用账户 ID，禁止继续以自由文本
+`account_name` 充当关联键。同一账户可以持有多只股票和多个币种的现金，缺少 FX Provider
+时不得直接生成跨币种总资产。用户明确授权仓位共享后，AI 可以收到同账户的脱敏持仓结构和
+`currency + amount` 现金余额，但不能收到账户名、本地 ID 或现金备注。
+
+详细口径和迁移规则见 `docs/PORTFOLIO_ACCOUNT_DESIGN.zh-CN.md`。
 
 ------------------------------------------------------------------------
 
@@ -1370,7 +1406,7 @@ Total                       100
 从 MVP 起由 Rule Engine 计算最终分数。AI 只输出有 Schema 约束的事实摘要、新闻情绪、市场
 解读、风险因素及各自置信度，不直接决定最终 `confidence_score`。
 
-AI 输出契约至少为：
+新闻/宏观 Provider 接入后的“上下文提取”契约为：
 
 ``` json
 {
@@ -1384,7 +1420,8 @@ AI 输出契约至少为：
 }
 ```
 
-Schema 中禁止出现 `confidence_score`、`source_quality` 或通知决策。Rule Engine 使用 AI 的
+该契约与 §21 的“技术研判输出”是两个不同接口，禁止混用。上下文提取 Schema 中不得出现
+`confidence_score`、`source_quality` 或通知决策。Rule Engine 使用 AI 的
 分类情绪与相关性，加上程序计算的技术指标、Provider 来源质量和数据新鲜度，生成
 `news_alignment_score`、`market_alignment_score`、`context_quality` 和最终分数。
 
@@ -1450,6 +1487,36 @@ notification:
 ## 21. AI 输出格式
 
 AI 必须输出结构化 JSON，同时生成适合人的摘要。
+
+当前技术研判接口的机器契约为：
+
+``` json
+{
+  "bias": "bullish | bearish | neutral",
+  "summary": "...",
+  "key_observations": [],
+  "bullish_scenario": "...",
+  "bearish_scenario": "...",
+  "invalidation_conditions": [],
+  "risk_factors": [],
+  "data_limitations": [],
+  "portfolio_decision": {
+    "stance": "no_position | hold | watch | reduce_risk | add_on_confirmation | exit_on_invalidation",
+    "risk_level": "low | medium | high | unknown",
+    "position_assessment": "...",
+    "actions": []
+  }
+}
+```
+
+Responses API 使用 strict JSON Schema。兼容 Chat Completions 的 Provider 使用 JSON mode；
+如果第一次返回字段缺失、枚举错误或额外字段，系统携带原响应要求模型按 Schema 修复一次。
+第二次仍失败时只返回稳定的协议错误码/摘要，不把 Zod issue、Provider 原始响应或内部堆栈
+直接展示给用户。AI 输出仍禁止包含最终技术 `confidence_score`。
+
+追问不得由浏览器把整份分析结果回传后再当作可信上下文。服务端为成功分析生成随机
+`analysisSessionId`，在内存中保存最多 1 小时、最多 100 个上下文；浏览器后续只提交该 ID
+和对话消息。没有服务端管理的 API Key 时禁用追问，页面临时 Key 不做持久化。
 
 示例：
 
